@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>writing assistant</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f9f8f6;
+    --surface: #ffffff;
+    --border: #e4e2dc;
+    --text: #1a1916;
+    --muted: #8a8780;
+    --accent: #2a2a2a;
+    --mode-active-bg: #1a1916;
+    --mode-active-text: #f9f8f6;
+    --radius: 10px;
+    --font: 'Inter', system-ui, sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.75rem;
+    width: 100%;
+    max-width: 520px;
+  }
+
+  .title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 1.25rem;
+  }
+
+  .mode-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 1.25rem;
+  }
+
+  .mbtn {
+    padding: 6px 18px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: transparent;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    transition: all 0.12s;
+    font-family: var(--font);
+  }
+
+  .mbtn.on {
+    background: var(--mode-active-bg);
+    color: var(--mode-active-text);
+    border-color: var(--mode-active-bg);
+  }
+
+  .result-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    min-height: 64px;
+    font-size: 15px;
+    line-height: 1.65;
+    color: var(--text);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    transition: background 0.15s;
+  }
+
+  .result-text { flex: 1; word-break: break-word; white-space: pre-wrap; }
+  .placeholder { color: var(--muted); font-size: 14px; }
+  .loading-text { color: var(--muted); font-size: 14px; font-style: italic; }
+
+  .copy-btn {
+    padding: 3px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-top: 2px;
+    font-family: var(--font);
+    transition: background 0.1s;
+  }
+  .copy-btn:hover { background: var(--border); }
+
+  .input-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+  }
+
+  textarea {
+    flex: 1;
+    min-height: 80px;
+    resize: none;
+    font-size: 15px;
+    padding: 10px 12px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-family: var(--font);
+    line-height: 1.55;
+    transition: border-color 0.12s;
+    outline: none;
+  }
+
+  textarea:focus { border-color: #aaa; }
+
+  .go-btn {
+    padding: 0 18px;
+    height: 80px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--mode-active-bg);
+    color: var(--mode-active-text);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: var(--font);
+    transition: opacity 0.12s;
+    white-space: nowrap;
+  }
+
+  .go-btn:hover { opacity: 0.85; }
+  .go-btn:active { transform: scale(0.97); }
+  .go-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .hint {
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--muted);
+    text-align: right;
+  }
+
+  .error-text { color: #c0392b; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="title">writing assistant</div>
+  <div class="mode-row">
+    <button class="mbtn on" id="btn-fr" onclick="setMode('fr')">🇫🇷 french</button>
+    <button class="mbtn" id="btn-en" onclick="setMode('en')">🇬🇧 english</button>
+    <button class="mbtn" id="btn-email" onclick="setMode('email')">✉️ email</button>
+  </div>
+  <div class="result-box" id="result-box">
+    <span class="result-text placeholder" id="result-text">the result will appear here...</span>
+  </div>
+  <div class="input-row">
+    <textarea id="inp" placeholder="write your message here..."></textarea>
+    <button class="go-btn" id="go-btn" onclick="transform()">transform</button>
+  </div>
+  <div class="hint">ctrl + enter to send</div>
+</div>
+
+<script>
+  let mode = 'fr';
+  let loading = false;
+
+  function setMode(m) {
+    mode = m;
+    document.getElementById('btn-fr').classList.toggle('on', m === 'fr');
+    document.getElementById('btn-en').classList.toggle('on', m === 'en');
+    document.getElementById('btn-email').classList.toggle('on', m === 'email');
+    
+    const inp = document.getElementById('inp');
+    if (m === 'email') {
+      inp.placeholder = 'write instructions or paste an email to reply to...';
+    } else {
+      inp.placeholder = 'write your message here...';
+    }
+    inp.focus();
+  }
+
+  function setResult(html) {
+    document.getElementById('result-box').innerHTML = html;
+  }
+
+  async function transform() {
+    if (loading) return;
+    const text = document.getElementById('inp').value.trim();
+    if (!text) return;
+
+    loading = true;
+    const btn = document.getElementById('go-btn');
+    btn.disabled = true;
+    setResult('<span class="result-text loading-text">transforming...</span>');
+
+    try {
+      const res = await fetch('/api/transform', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ text, mode })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        const msg = data?.error || 'api error ' + res.status;
+        setResult('<span class="result-text error-text">' + msg + '</span>');
+      } else {
+        const out = (data.result || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        setResult(
+          '<span class="result-text" id="result-text">' + out + '</span>' +
+          '<button class="copy-btn" onclick="copyResult()">copy</button>'
+        );
+        document.getElementById('inp').value = '';
+      }
+    } catch (e) {
+      setResult('<span class="result-text error-text">network error — check your internet connection.</span>');
+    }
+
+    loading = false;
+    btn.disabled = false;
+    document.getElementById('inp').focus();
+  }
+
+  function copyResult() {
+    const t = document.getElementById('result-text')?.textContent || '';
+    navigator.clipboard.writeText(t).then(() => {
+      const btn = document.querySelector('.copy-btn');
+      if (btn) { btn.textContent = 'copied!'; setTimeout(() => btn.textContent = 'copy', 1200); }
+    });
+  }
+
+  document.getElementById('inp').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) transform();
+  });
+</script>
+</body>
+</html>
